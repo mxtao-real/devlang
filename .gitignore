@@ -1,0 +1,13 @@
+
+# Visual Studio 
+.vs/
+
+# Visual Studio Code 
+.vscode/
+
+# VSCode Plugin: Ionide-FSharp
+.ionide/
+
+# .Net Project binary files
+bin/
+obj/
