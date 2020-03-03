@@ -4,8 +4,10 @@
     <TargetFramework>netcoreapp3.1</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="src/Compiler.fs" />
-    <Compile Include="src/Runtime.fs" />
+    <Compile Include="src/Compiler/Compiler.fs" />
+    <Compile Include="src/Runtime/Memory.fs" />
+    <Compile Include="src/Runtime/Debug.fs" />
+    <Compile Include="src/Runtime/Runtime.fs" />
     <Compile Include="src/Program.fs" />
   </ItemGroup>
 </Project>

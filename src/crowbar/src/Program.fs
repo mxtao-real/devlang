@@ -1,6 +1,6 @@
-﻿
-open System
+﻿module Corwbar
 
+open System
 
 [<EntryPoint>]
 let main argv =
