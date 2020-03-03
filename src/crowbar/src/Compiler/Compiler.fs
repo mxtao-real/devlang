@@ -3,6 +3,13 @@ module Crowbar.Compiler
 open System
 open System.IO
 
+// https://bartoszmilewski.com/2014/10/28/category-theory-for-programmers-the-preface/
+
+module Parser =
+    // parser combinator 
+    // https://fsharpforfunandprofit.com/series/understanding-parser-combinators.html
+    type Parser<'T> = Parser of (string -> Result<'T, string>)
+
 module Tokenizer =
     // let reader = new StreamReader("")
 
