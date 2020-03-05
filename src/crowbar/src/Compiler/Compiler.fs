@@ -11,7 +11,22 @@ module Parser =
     type Parser<'T> = Parser of (string -> Result<'T, string>)
 
 module Tokenizer =
-    // let reader = new StreamReader("")
+
+    // the position in source file
+    type Position = {file: string; line: int; column: int}
+    
+    // the token kind
+    type TokenKind = 
+        | Val // type 
+        | Integer
+        | String
+        | Double
+        | Indentifer
+
+     type Token = {kind: TokenKind; value: string option; position: Position}
+
+     
+     // let reader = new StreamReader("")
 
     type CharReader(reader: TextReader)  = 
         let mutable marking = false
