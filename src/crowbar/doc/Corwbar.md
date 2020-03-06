@@ -62,7 +62,6 @@ print("b.." + b);
 global a, b, c;
 ```
 
-
 ```
 a = 10;     ←定义全局变量a的声明
 
@@ -140,5 +139,41 @@ token类型
 关键字、保留字、常量、符号等
 
 ```
++
+-
+*
+/
+%
+>
+>=
+<
+<=
+==
+!=
+&&
+||
+=
+,
+.
+;
+(
+)
+{
+}
+"
+true
+false
+
+if
+else
+elif
+
+function
+return
+global
+continue
+break
+for
+while
 
 ```
