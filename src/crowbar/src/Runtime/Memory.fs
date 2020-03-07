@@ -1,1 +1,2 @@
-module Crowbar.Runtime.Memory
+
+namespace Crowbar.Runtime.Memory

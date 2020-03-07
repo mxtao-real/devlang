@@ -1,1 +1,2 @@
-module Crowbar.Runtime.Debug
+
+namespace Crowbar.Runtime.Debug
