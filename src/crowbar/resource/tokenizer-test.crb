@@ -1,0 +1,36 @@
+
+# this is a line comment
+
++ - * / % > < >= <= == != && ||
+
+, . ; ( ) { }
+
+1234 1234.5 "123456"
+
+if else elif
+for while continue break
+true false
+function return global
+
+a b c d a0 b1 c345_ abcd
+
+print("hello, world\n"); # this is a inline comment
+
+function hoge(a, b) {
+    c = a + b;
+    print("a+b.." + c + "\n");
+
+    return c;
+}
+
+for (i = 1; i < 100; i = i + 1) {
+    if (i % 15 == 0) {
+        print("FizzBuzz\n");
+    } elsif (i % 3 == 0) {
+        print("Fizz\n");
+    } elsif (i % 5 == 0) {
+        print("Buzz\n");
+    } else {
+        print("" + i + "\n");
+    }
+}

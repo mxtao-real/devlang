@@ -1,11 +1,6 @@
 
 /// <summary>Crowbar Compiler, generate abstract syntax tree.</summary>
-
-module Crowbar.Compiler
-
-/// <summary></summary>
-/// <param name=""></param>
-/// <returns></returns>
+namespace Crowbar.Compiler
 
 module Tokenizer =
     open System
@@ -84,7 +79,7 @@ module Tokenizer =
         let isUnusedChar c = c = ' ' || c = '\n' || c = '\r' || c = '\t'
         let rec skip (r: CharReader) =
             match r.Peek() with
-            | '#' -> while r.NotEnd && r.Peek() <> '\n' do r.Read() |> ignore; skip r
+            | '#' -> while r.NotEnd && r.Peek() <> '\n' do r.Read() |> ignore done; skip r
             | c when isUnusedChar c -> r.Read() |> ignore; skip r
             | _ -> ()
         let parse (r: CharReader) = 
@@ -113,11 +108,12 @@ module Tokenizer =
             | '(' -> {kind = LeftParenthesis; value = None; position = pos}
             | ')' -> {kind = RightParenthesis; value = None; position = pos}
             | '{' -> {kind = LeftCurlyBrace; value = None; position = pos}
-            | '}' -> {kind = LeftParenthesis; value = None; position = pos}
+            | '}' -> {kind = RightCurlyBrace; value = None; position = pos}
             | '"' ->
                 let list = ResizeArray<char>()
                 while r.NotEnd && r.Peek() <> '"' do list.Add(r.Read())
-                let str = list.ToArray() |> string
+                r.Read() |> ignore // throw another '"'
+                let str = list |> String.Concat
                 if r.IsEnd then {kind = Error; value = Some str; position = pos}
                 else {kind = String; value = Some str; position = pos}
             | d when Char.IsDigit d ->
@@ -125,7 +121,7 @@ module Tokenizer =
                 list.Add(d)
                 while r.NotEnd && (Char.IsDigit(r.Peek()) || r.Peek() = '.') do list.Add(r.Read())
                 let count = list |> Seq.filter (fun c -> c = '.') |> Seq.length
-                let str = list.ToArray() |> string
+                let str = list |> String.Concat
                 if count = 0 then {kind = Int; value = Some str; position = pos}
                 elif count = 1 then {kind = Double; value = Some str; position = pos}
                 else {kind = Error; value = Some str; position = pos}
@@ -133,7 +129,7 @@ module Tokenizer =
                 let list = ResizeArray<char>()
                 list.Add(c)
                 while r.NotEnd && (Char.IsLetterOrDigit(r.Peek()) || r.Peek() = '_') do list.Add(r.Read())
-                let str = list.ToArray() |> string
+                let str = list |> String.Concat
                 match str with
                 | "if" -> {kind = If; value = None; position = pos}
                 | "else" -> {kind = Else; value = None; position = pos}
@@ -160,7 +156,17 @@ module Tokenizer =
             use reader = new CharReader(path)
             while reader.NotEnd do
                 yield parseOneToken reader
+            yield parseOneToken reader // emit an EOF token here
         }
+
+    let private innerTest () = 
+        let pretty t =
+            let {kind = k; value = v; position = {line = l; column = c; file = _}} = t
+            match v with
+            | Some s -> printfn "%2d:%2d -> [%A] \"%s\"" l c k s
+            | None -> printfn "%2d:%2d -> [%A]" l c k
+        let path = "resource/tokenizer-test.crb"
+        tokenize path |> Seq.iter pretty
 
 // http://tomasp.net/blog/csharp-fsharp-async-intro.aspx/
 // https://bartoszmilewski.com/2014/10/28/category-theory-for-programmers-the-preface/
