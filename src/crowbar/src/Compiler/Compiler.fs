@@ -1,7 +1,8 @@
 
-/// <summary>Crowbar Compiler, generate abstract syntax tree.</summary>
+/// <summary>Crowbar compiler, processing source file, generate abstract syntax tree.</summary>
 namespace Crowbar.Compiler
 
+/// <summary>Tokenizer, processing source file, generate token stream..</summary>
 module Tokenizer =
     open System
     open System.IO
@@ -51,7 +52,7 @@ module Tokenizer =
         | EOF           // end of file
         | Error         // for error token 
 
-    /// <summary>token</summary>
+    /// <summary>token instance</summary>
     type Token = {kind: TokenKind; value: string option; position: Position}
 
     // internal CharReader
@@ -75,6 +76,7 @@ module Tokenizer =
         interface IDisposable with
             member _.Dispose() = reader.Dispose()
 
+    // skip white spaces and emit a token
     let private parseOneToken(reader: CharReader) =
         let isUnusedChar c = c = ' ' || c = '\n' || c = '\r' || c = '\t'
         let rec skip (r: CharReader) =
@@ -151,6 +153,10 @@ module Tokenizer =
         skip reader
         if reader.NotEnd then parse reader else parseEOF reader
 
+    /// <summary>tokenizer, parse source file to tokens</summary>
+    /// <param name="path">the path to source file.</param>
+    /// <returns>token sequence.</returns>
+    [<CompiledName("Tokenize")>]
     let tokenize (path: string) = 
         seq {
             use reader = new CharReader(path)
@@ -159,6 +165,7 @@ module Tokenizer =
             yield parseOneToken reader // emit an EOF token here
         }
 
+    // just for inner test
     let private innerTest () = 
         let pretty t =
             let {kind = k; value = v; position = {line = l; column = c; file = _}} = t
@@ -167,6 +174,27 @@ module Tokenizer =
             | None -> printfn "%2d:%2d -> [%A]" l c k
         let path = "resource/tokenizer-test.crb"
         tokenize path |> Seq.iter pretty
+
+module AbstractSyntaxTree =
+
+    type Expression = 
+        | BoolExp of BoolExp
+        | IntExp of IntExp
+        | StringExp of StringExp
+        | FuncInvokeExp of FuncInvokeExp
+    and BoolExp = BoolLiteral of BoolLiteral | BoolBiExp of BoolBiExp
+    and BoolLiteral = bool
+    and BoolBiExp = {}
+    and IntExp = {}
+
+    type Statement =
+        | WhileStmt of WhileStmt
+        | ForStmt of ForStmt
+    and WhileStmt = {condition: Expression; body: Statement list}
+    and ForStmt = {init: Statement; inc: Statement; condition: Expression; body: Statement list}
+
+module Parser =
+
 
 // http://tomasp.net/blog/csharp-fsharp-async-intro.aspx/
 // https://bartoszmilewski.com/2014/10/28/category-theory-for-programmers-the-preface/
