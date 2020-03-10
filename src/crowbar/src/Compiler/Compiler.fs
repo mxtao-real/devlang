@@ -177,19 +177,38 @@ module Tokenizer =
 
 module AbstractSyntaxTree =
 
-    type Expression = 
-        | BoolExp of BoolExp
-        | IntExp of IntExp
-        | StringExp of StringExp
+    type BiExpKind = 
+        | Add           // operator: +
+        | Subtract      // operator: -
+        | Multiply      // operator: *
+        | Divide        // operator: /
+        | Mod           // operator: %
+        | Greater       // operator: >
+        | GreaterEqual  // operator: >=
+        | Less          // operator: <
+        | LessEqual     // operator: <=
+        | Equal         // operator: ==
+        | NotEqual      // operator: !=
+        | And           // operator: &&
+        | Or            // operator: ||
+
+    type Expression =
+        | IntLiteral of int
+        | DoubleLiteral of double
+        | BoolLiteral of bool
+        | StringLiteral of string
+        | VarRefExp of VarRefExp
         | FuncInvokeExp of FuncInvokeExp
-    and BoolExp = BoolLiteral of BoolLiteral | BoolBiExp of BoolBiExp
-    and BoolLiteral = bool
-    and BoolBiExp = {}
-    and IntExp = {}
+        | BinaryExp of BinaryExp
+    and VarRefExp = {name: string}
+    and FuncInvokeExp = {name: string; args: Expression list}
+    and BinaryExp = {kind: BiExpKind; left: Expression; right: Expression}
 
     type Statement =
+        | AssignStmt of AssignStmt
         | WhileStmt of WhileStmt
         | ForStmt of ForStmt
+    and AssignStmt = {name: string; value: Expression}
     and WhileStmt = {condition: Expression; body: Statement list}
     and ForStmt = {init: Statement; inc: Statement; condition: Expression; body: Statement list}
 
