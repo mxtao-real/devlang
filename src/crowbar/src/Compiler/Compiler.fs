@@ -205,10 +205,18 @@ module AbstractSyntaxTree =
     and BinaryExp = {kind: BiExpKind; left: Expression; right: Expression}
 
     type Statement =
+        | GlobalRefStmt of GlobalRefStmt
         | AssignStmt of AssignStmt
+        | ReturnStmt of ReturnStmt
+        | IfElseStmt of IfElseStmt
         | WhileStmt of WhileStmt
         | ForStmt of ForStmt
+        | BreakStmt
+        | ContinueStmt
+    and GlobalRefStmt = {names: string list}
     and AssignStmt = {name: string; value: Expression}
+    and ReturnStmt = {exp: Expression option}
+    and IfElseStmt = {condition: Expression; trueBody: Statement list; falseBody: Statement list}
     and WhileStmt = {condition: Expression; body: Statement list}
     and ForStmt = {init: Statement; inc: Statement; condition: Expression; body: Statement list}
 
