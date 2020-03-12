@@ -226,7 +226,7 @@ module Parser =
 
     // todo: fix here ...
     [<AbstractClass>]
-    type private MarkableTokenReader =
+    type private TokenReader =
         abstract member Mark: unit -> unit      // mark
         abstract member UnMark: unit -> unit    // stop mark
         abstract member Reset: unit -> unit     // reset mark state
@@ -246,47 +246,55 @@ module Parser =
 
     module private rec ExpParser = 
 
-        let parseIntLiteral (reader: MarkableTokenReader) =
+        let parseIntLiteral (reader: TokenReader) =
             match reader.Read() with
             | {kind = Int; value = Some str} -> str |> int |> IntLiteral
             | t -> t |> sprintf "need an int value here but got a %A " |> failwith
 
-        let parseDoubleLiteral (reader: MarkableTokenReader) =
+        let parseDoubleLiteral (reader: TokenReader) =
             match reader.Read() with
             | {kind = Double; value = Some str} -> str |> double |> DoubleLiteral
             | t -> t |> sprintf "need a double value here but got a %A " |> failwith
 
-        let parseBoolLiteral (reader: MarkableTokenReader) =
+        let parseBoolLiteral (reader: TokenReader) =
             match reader.Read() with
             | {kind = True} -> BoolLiteral true
             | {kind = False} -> BoolLiteral false
             | t -> t |> sprintf "need true/false here but got a %A " |> failwith
 
-        let parseStringLiteral (reader: MarkableTokenReader) = 
+        let parseStringLiteral (reader: TokenReader) = 
             match reader.Read() with 
             | {kind = String; value = Some str} -> StringLiteral str
             | t -> t |> sprintf "need a string value here but got a %A " |> failwith
 
-        let parseVarRefExp (reader: MarkableTokenReader) =
+        let parseVarRefExp (reader: TokenReader) =
             match reader.Read() with 
             | {kind = Identifer; value = Some str} -> VarRefExp {name = str}
             | t -> t |> sprintf "need a identifer here but got a %A " |> failwith
 
-        let parseFuncInvokeExp (reader: MarkableTokenReader) =
-            // todo: fix here 
-            let parseArgList (r: MarkableTokenReader) (list: Expression list) =
+        let parseFuncInvokeExp (reader: TokenReader) =
+            let rec parseArgList (r: TokenReader) (list: Expression list) =
                 match r.Peek() with
                 | {kind = RightParenthesis} -> list
-                | _ ->  list @ [parseBoolLiteral r]
+                | _ -> parseExpression r |> List.singleton |> (@) list |> parseArgList r
             match reader.Read() with
             | {kind = Identifer; value = Some str} ->
                 reader.EatToken LeftParenthesis
                 let args = parseArgList reader []
                 reader.EatToken RightParenthesis
+                FuncInvokeExp {name = str; args = args}
             | t -> t |> sprintf "need a identifer here but got a %A " |> failwith
 
-        
-        let parseExpression (reader: MarkableTokenReader) =
+        let parseBinaryExp (reader: TokenReader) = 
+            let left = parseExpression reader
+            let op =
+                match reader.Read() with
+                | {kind = TokenKind.Add} -> Add
+                | _ -> failwith ""
+            let right = parseExpression reader
+            BinaryExp {kind = op; left = left; right = right}
+
+        let parseExpression (reader: TokenReader) =
             parseFuncInvokeExp reader
 
 
