@@ -221,7 +221,76 @@ module AbstractSyntaxTree =
     and ForStmt = {init: Statement; inc: Statement; condition: Expression; body: Statement list}
 
 module Parser =
+    open Tokenizer
+    open AbstractSyntaxTree
 
+    // todo: fix here ...
+    [<AbstractClass>]
+    type private MarkableTokenReader =
+        abstract member Mark: unit -> unit      // mark
+        abstract member UnMark: unit -> unit    // stop mark
+        abstract member Reset: unit -> unit     // reset mark state
+        abstract member Peek: unit -> Token
+        abstract member Read: unit -> Token
+        member this.EatToken (kind: TokenKind) =
+            match this.Read() with
+            | {kind = k} when kind = k -> ()
+            | t -> sprintf "need a '%A' token here but got a %A" kind t |> failwith
+
+    // type private MarkableTokenReader(tokens: Token seq) =
+    //     let mutable marking = false
+    //     let enumrator = tokens.GetEnumerator()
+    //     member _.Mark() = marking <- true
+    //     member _.UnMark() = marking <- false
+    //     member _.Peek() = enumrator.
+
+    module private rec ExpParser = 
+
+        let parseIntLiteral (reader: MarkableTokenReader) =
+            match reader.Read() with
+            | {kind = Int; value = Some str} -> str |> int |> IntLiteral
+            | t -> t |> sprintf "need an int value here but got a %A " |> failwith
+
+        let parseDoubleLiteral (reader: MarkableTokenReader) =
+            match reader.Read() with
+            | {kind = Double; value = Some str} -> str |> double |> DoubleLiteral
+            | t -> t |> sprintf "need a double value here but got a %A " |> failwith
+
+        let parseBoolLiteral (reader: MarkableTokenReader) =
+            match reader.Read() with
+            | {kind = True} -> BoolLiteral true
+            | {kind = False} -> BoolLiteral false
+            | t -> t |> sprintf "need true/false here but got a %A " |> failwith
+
+        let parseStringLiteral (reader: MarkableTokenReader) = 
+            match reader.Read() with 
+            | {kind = String; value = Some str} -> StringLiteral str
+            | t -> t |> sprintf "need a string value here but got a %A " |> failwith
+
+        let parseVarRefExp (reader: MarkableTokenReader) =
+            match reader.Read() with 
+            | {kind = Identifer; value = Some str} -> VarRefExp {name = str}
+            | t -> t |> sprintf "need a identifer here but got a %A " |> failwith
+
+        let parseFuncInvokeExp (reader: MarkableTokenReader) =
+            // todo: fix here 
+            let parseArgList (r: MarkableTokenReader) (list: Expression list) =
+                match r.Peek() with
+                | {kind = RightParenthesis} -> list
+                | _ ->  list @ [parseBoolLiteral r]
+            match reader.Read() with
+            | {kind = Identifer; value = Some str} ->
+                reader.EatToken LeftParenthesis
+                let args = parseArgList reader []
+                reader.EatToken RightParenthesis
+            | t -> t |> sprintf "need a identifer here but got a %A " |> failwith
+
+        
+        let parseExpression (reader: MarkableTokenReader) =
+            parseFuncInvokeExp reader
+
+
+    // let parse 
 
 // http://tomasp.net/blog/csharp-fsharp-async-intro.aspx/
 // https://bartoszmilewski.com/2014/10/28/category-theory-for-programmers-the-preface/
