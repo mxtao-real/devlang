@@ -213,12 +213,14 @@ module AbstractSyntaxTree =
         | ForStmt of ForStmt
         | BreakStmt
         | ContinueStmt
+        | FuncDefStmt of FuncDefStmt
     and GlobalRefStmt = {names: string list}
     and AssignStmt = {name: string; value: Expression}
     and ReturnStmt = {exp: Expression option}
     and IfElseStmt = {condition: Expression; trueBody: Statement list; falseBody: Statement list}
     and WhileStmt = {condition: Expression; body: Statement list}
     and ForStmt = {init: Statement; inc: Statement; condition: Expression; body: Statement list}
+    and FuncDefStmt = {name: string; args: string list; body: Statement list}
 
 module Parser =
     open Tokenizer
@@ -230,73 +232,251 @@ module Parser =
         abstract member Mark: unit -> unit      // mark
         abstract member UnMark: unit -> unit    // stop mark
         abstract member Reset: unit -> unit     // reset mark state
-        abstract member Peek: unit -> Token
+        abstract member Peek: unit -> Token     // see current
         abstract member Read: unit -> Token
         member this.EatToken (kind: TokenKind) =
             match this.Read() with
             | {kind = k} when kind = k -> ()
-            | t -> sprintf "need a '%A' token here but got a %A" kind t |> failwith
-
-    // type private MarkableTokenReader(tokens: Token seq) =
-    //     let mutable marking = false
-    //     let enumrator = tokens.GetEnumerator()
-    //     member _.Mark() = marking <- true
-    //     member _.UnMark() = marking <- false
-    //     member _.Peek() = enumrator.
+            | t -> failwithf "need a '%A' token here but got a %A" kind t
 
     module private rec ExpParser = 
-
+        // ------------------ atom expressions ------------------
         let parseIntLiteral (reader: TokenReader) =
             match reader.Read() with
             | {kind = Int; value = Some str} -> str |> int |> IntLiteral
-            | t -> t |> sprintf "need an int value here but got a %A " |> failwith
+            | t -> failwithf "need an int value here but got a %A" t
 
         let parseDoubleLiteral (reader: TokenReader) =
             match reader.Read() with
             | {kind = Double; value = Some str} -> str |> double |> DoubleLiteral
-            | t -> t |> sprintf "need a double value here but got a %A " |> failwith
+            | t -> failwithf "need a double value here but got a %A" t
 
         let parseBoolLiteral (reader: TokenReader) =
             match reader.Read() with
             | {kind = True} -> BoolLiteral true
             | {kind = False} -> BoolLiteral false
-            | t -> t |> sprintf "need true/false here but got a %A " |> failwith
+            | t -> failwithf "need true/false here but got a %A" t
 
         let parseStringLiteral (reader: TokenReader) = 
             match reader.Read() with 
             | {kind = String; value = Some str} -> StringLiteral str
-            | t -> t |> sprintf "need a string value here but got a %A " |> failwith
+            | t -> failwithf "need a string value here but got a %A" t
 
         let parseVarRefExp (reader: TokenReader) =
             match reader.Read() with 
             | {kind = Identifer; value = Some str} -> VarRefExp {name = str}
-            | t -> t |> sprintf "need a identifer here but got a %A " |> failwith
+            | t -> failwithf "need a identifer here but got a %A" t
 
         let parseFuncInvokeExp (reader: TokenReader) =
             let rec parseArgList (r: TokenReader) (list: Expression list) =
                 match r.Peek() with
                 | {kind = RightParenthesis} -> list
-                | _ -> parseExpression r |> List.singleton |> (@) list |> parseArgList r
+                // | {kind = Comma} -> r.EatToken Comma; parseArgList r list
+                | {kind = Comma} -> r.EatToken Comma; list @ [parseExpression r] |> parseArgList r // make sure an expression following ','
+                | _ -> list @ [parseExpression r] |> parseArgList r
             match reader.Read() with
             | {kind = Identifer; value = Some str} ->
                 reader.EatToken LeftParenthesis
                 let args = parseArgList reader []
                 reader.EatToken RightParenthesis
                 FuncInvokeExp {name = str; args = args}
-            | t -> t |> sprintf "need a identifer here but got a %A " |> failwith
+            | t -> failwithf "need a identifer here but got a %A" t
 
-        let parseBinaryExp (reader: TokenReader) = 
-            let left = parseExpression reader
-            let op =
+        let parseAtomExpression (reader: TokenReader) =
+            reader.Mark()
+            match reader.Read() with
+            | {kind = Int} -> reader.Reset(); parseIntLiteral reader
+            | {kind = Double} -> reader.Reset(); parseDoubleLiteral reader
+            | {kind = True} | {kind = False} -> reader.Reset(); parseBoolLiteral reader
+            | {kind = String} -> reader.Reset(); parseStringLiteral reader
+            | {kind = Identifer} -> 
                 match reader.Read() with
-                | {kind = TokenKind.Add} -> Add
-                | _ -> failwith ""
-            let right = parseExpression reader
-            BinaryExp {kind = op; left = left; right = right}
+                | {kind = LeftParenthesis} -> reader.Reset(); parseFuncInvokeExp reader
+                | _ -> reader.Reset(); parseVarRefExp reader
+            | t -> failwithf "cannot parse expression start with %A" t
 
-        let parseExpression (reader: TokenReader) =
-            parseFuncInvokeExp reader
+        // ------------------ binary expressions ------------------
+        let ``parse * / %`` (reader: TokenReader) =
+            let exp = parseAtomExpression reader
+            let o = match reader.Peek() with
+                    | {kind = TokenKind.Multiply} -> ValueSome Multiply
+                    | {kind = TokenKind.Divide} -> ValueSome Divide
+                    | {kind = TokenKind.Mod} -> ValueSome Mod
+                    | _ -> ValueNone
+            match o with
+            | ValueNone -> exp
+            | ValueSome op -> reader.Read() |> ignore; BinaryExp {kind = op; left = exp; right = ``parse * / %`` reader}
 
+        let ``parse + -`` (reader: TokenReader) = 
+            let exp = ``parse * / %`` reader
+            let o = match reader.Peek() with
+                    | {kind = TokenKind.Add} -> ValueSome Add
+                    | {kind = TokenKind.Subtract} -> ValueSome Subtract
+                    | _ -> ValueNone
+            match o with 
+            | ValueNone -> exp
+            | ValueSome op -> reader.Read() |> ignore; BinaryExp {kind = op; left = exp; right = ``parse + -`` reader}
+
+        let ``parse > >= < <= == != `` (reader: TokenReader) =
+            let exp = ``parse + -`` reader
+            let o = match reader.Peek() with
+                    | {kind = TokenKind.Greater} -> ValueSome Greater
+                    | {kind = TokenKind.GreaterEqual} -> ValueSome GreaterEqual
+                    | {kind = TokenKind.Less} -> ValueSome Less
+                    | {kind = TokenKind.LessEqual} -> ValueSome LessEqual
+                    | {kind = TokenKind.Equal} -> ValueSome Equal
+                    | {kind = TokenKind.NotEqual} -> ValueSome NotEqual
+                    | _ -> ValueNone
+            match o with
+            | ValueNone -> exp
+            | ValueSome op -> reader.Read() |> ignore; BinaryExp {kind = op; left = exp; right = ``parse + -`` reader}
+
+        let ``parse && ||`` (reader: TokenReader) =
+            let exp = ``parse > >= < <= == != `` reader
+            let o = match reader.Peek() with
+                    | {kind = TokenKind.And} -> ValueSome And
+                    | {kind = TokenKind.Or} -> ValueSome Or
+                    | _ -> ValueNone
+            match o with
+            | ValueNone -> exp
+            | ValueSome op -> reader.Read() |> ignore; BinaryExp {kind = op; left = exp; right = ``parse > >= < <= == != `` reader}
+
+        // to outside
+        let parseExpression = ``parse && ||``
+
+    // just use expression parser here ...
+    let private parseExp = ExpParser.parseExpression
+
+    module private rec StmtParser = 
+
+        // target: "a, b, c, d"
+        let rec private parseNameList (reader: TokenReader) (list: string list) =
+            match reader.Peek() with
+            | {kind = Identifer; value = Some str} -> reader.EatToken Identifer; list @ [str] |> parseNameList reader
+            | {kind = Comma} -> 
+                // make sure a name following ','
+                reader.EatToken Comma
+                match reader.Read() with
+                | {kind = Identifer; value = Some str} -> list @ [str] |> parseNameList reader
+                | t -> failwithf "need a identifer here but got a %A" t
+            | _ -> list
+
+        let parseGlobalRefStmt (reader: TokenReader) =
+            reader.EatToken Global
+            let list = parseNameList reader []
+            reader.EatToken Semicolon
+            GlobalRefStmt {names = list}
+
+        let parseAssignStmt (reader: TokenReader) =
+            let n = match reader.Read() with
+                    | {kind = Identifer; value = Some str} -> str
+                    | t -> failwithf "need a identifer here but got a %A" t
+            reader.EatToken Assign
+            let exp = parseExp reader
+            AssignStmt {name = n; value = exp}
+
+        let parseReturnStmt (reader: TokenReader) =
+            reader.EatToken Return
+            let e = match reader.Peek() with
+                    | {kind = Semicolon} -> None
+                    | _ -> parseExp reader |> Some
+            reader.EatToken Semicolon
+            ReturnStmt {exp = e}
+
+        let parseIfElseStmt (reader: TokenReader) = 
+            match reader.Read() with
+            | {kind = If} | {kind = ElIf} -> ()
+            | t -> failwithf "need a if/elif here but got a %A" t
+            reader.EatToken LeftParenthesis
+            let cond = parseExp reader
+            reader.EatToken RightParenthesis
+            reader.EatToken LeftCurlyBrace
+            let t = parseStmtList reader
+            reader.EatToken RightCurlyBrace
+            match reader.Peek() with
+            | {kind = Else} ->
+                reader.EatToken Else
+                reader.EatToken LeftCurlyBrace
+                let f = parseStmtList reader
+                reader.EatToken RightCurlyBrace
+                IfElseStmt {condition = cond; trueBody = t; falseBody = f}
+            | {kind = ElIf} ->
+                let f = parseIfElseStmt reader
+                IfElseStmt {condition = cond; trueBody = t; falseBody = [f]}
+            | t -> failwithf "need a elif/else here but got a %A" t
+
+        let parseWhileStmt (reader: TokenReader) = 
+            reader.EatToken While
+            reader.EatToken LeftParenthesis
+            let c = parseExp reader
+            reader.EatToken RightParenthesis
+            reader.EatToken LeftCurlyBrace
+            let sl = parseStmtList reader
+            reader.EatToken RightCurlyBrace
+            WhileStmt {condition = c; body = sl}
+
+        let parseForStmt (reader: TokenReader) = 
+            reader.EatToken For
+            reader.EatToken LeftParenthesis
+            let init = parseStmt reader
+            reader.EatToken Semicolon
+            let cond = parseExp reader
+            reader.EatToken Semicolon
+            let inc = parseStmt reader
+            reader.EatToken RightParenthesis
+            reader.EatToken LeftCurlyBrace
+            let sl = parseStmtList reader
+            reader.EatToken RightCurlyBrace
+            ForStmt {init = init; condition = cond; inc = inc; body = sl}
+
+        let parseBreakStmt (reader: TokenReader) =
+            reader.EatToken Break
+            reader.EatToken Semicolon
+            BreakStmt
+
+        let parseContinueStmt (reader: TokenReader) =
+            reader.EatToken Continue
+            reader.EatToken Semicolon
+            ContinueStmt
+
+        let parseFunDefStmt (reader: TokenReader) = 
+            reader.EatToken Function
+            let n = match reader.Read() with
+                    | {kind = Identifer; value = Some str} -> str
+                    | t -> failwithf "need a identifer here but got a %A" t
+            reader.EatToken LeftParenthesis
+            let args = parseNameList reader []
+            reader.EatToken RightParenthesis
+            reader.EatToken LeftCurlyBrace
+            let body = parseStmtList reader
+            reader.EatToken RightCurlyBrace
+            FuncDefStmt {name = n; args = args; body = body}
+
+        let parseStmt (reader: TokenReader): Statement =
+            let {kind = k; value = _; position = _} = reader.Peek()
+            let f = match k with
+                    | Global -> parseGlobalRefStmt
+                    | Identifer -> parseAssignStmt
+                    | Return -> parseReturnStmt
+                    | If -> parseIfElseStmt
+                    | While -> parseWhileStmt
+                    | For -> parseForStmt
+                    | Break -> parseForStmt
+                    | Continue -> parseContinueStmt
+                    | Function -> parseFunDefStmt
+                    | t -> failwithf "cannot parse a statement starts with %A" t
+            f reader
+
+        let parseStmtList (reader: TokenReader) = 
+            let inner (r: TokenReader) (l: Statement list) =
+                match r.Peek() with
+                | {kind = RightCurlyBrace} | {kind = EOF} -> l
+                | _ -> l @ [parseStmt reader]
+            inner reader []
+
+    // just use statement list parser here 
+    let private parseStatement = StmtParser.parseStmt
+    let private parseStatementList = StmtParser.parseStmtList
 
     // let parse 
 
