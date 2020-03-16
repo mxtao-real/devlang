@@ -1,6 +1,19 @@
-// this module for runtime impl
 
+/// <summary>Crowbar Runtime, accept abstract syntax tree.</summary>
 namespace Crowbar.Runtime
+
+open Crowbar.Lang.AbstractSyntaxTree
+
+module private Memory =
+    let malloc () = failwith "not implement"
+
+module private Debug =
+    let debug () = failwith "not implement"
+
+module Runtime = 
+
+    let eval ast = failwith "Not Implemented"
+
 
 // open System
 // open System.Runtime.InteropServices
