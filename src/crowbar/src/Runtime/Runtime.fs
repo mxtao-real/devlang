@@ -4,12 +4,11 @@ namespace Crowbar.Runtime
 
 module private RtCommon =
     type RtType = 
-        | Unit
-        | Int
-        | Double
-        | String
-        | Pointer of Pointer
-    and Pointer = {TypeName: string}
+        | Unit = 0
+        | Int = 1
+        | Double = 2
+        | String = 3
+        | Pointer = 4
 
     type RtValue =
         | Unit
@@ -21,11 +20,17 @@ module private RtCommon =
     and RefType =
         | String of voidptr
 
-    // to execute statement/expression environment
-    type Environment = ???
-
-
 module private Memory =
+
+    type MemoryEntry(ptr: voidptr) =
+        member _.To() = 1
+        member val Ptr = ptr
+
+    // |    8 byte    |  4 byte  |      |   4 byte   |   8 byte  |       |
+    // | used mem len | name len | name | value type | value len | value |
+    type MemoryEntry = voidptr
+    
+    
     let malloc () = failwith "not implement"
 
 module private Debug =
