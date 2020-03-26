@@ -2,6 +2,11 @@
 /// <summary>Crowbar Runtime, accept abstract syntax tree.</summary>
 namespace Crowbar.Runtime
 
+open System
+open Microsoft.FSharp.NativeInterop
+
+#nowarn "9"
+
 module private RtCommon =
     type RtType = 
         | Unit = 0
@@ -10,27 +15,19 @@ module private RtCommon =
         | String = 3
         | Pointer = 4
 
-    type RtValue =
-        | Unit
-        | ValueType of ValueType
-        | RefType of RefType
-    and ValueType = 
-        | Int of voidptr
-        | Double of voidptr
-    and RefType =
-        | String of voidptr
-
-module private Memory =
-
-    type MemoryEntry(ptr: voidptr) =
-        member _.To() = 1
-        member val Ptr = ptr
-
     // |    8 byte    |  4 byte  |      |   4 byte   |   8 byte  |       |
     // | used mem len | name len | name | value type | value len | value |
-    type MemoryEntry = voidptr
-    
-    
+    type ReadOnlyMemoryEntry(ptr: voidptr) =
+        let len = NativePtr.ofVoidPtr<uint64> ptr |> NativePtr.read |> int
+        let span = new ReadOnlySpan<byte>(ptr, len)
+        let nameLen =  BitConverter.ToUInt32(span.Slice(8, 4)) |> int
+        let name = System.Text.Encoding.ASCII.GetString (span.Slice(12, nameLen))
+        let ``type`` = BitConverter.ToInt32(span.Slice(8+4+nameLen, 4))
+        let valueLen = BitConverter.ToUInt64(span.Slice(8+4+nameLen+4, 8)) |> int
+        let valueSpan = span.Slice(8+4+nameLen+4+8, valueLen)
+        member _.Ptr = ptr
+
+module private Memory =
     let malloc () = failwith "not implement"
 
 module private Debug =
