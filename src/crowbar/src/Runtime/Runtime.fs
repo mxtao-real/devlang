@@ -26,6 +26,14 @@ module private RtCommon =
         let valueLen = BitConverter.ToUInt64(span.Slice(8+4+nameLen+4, 8)) |> int
         let valueSpan = span.Slice(8+4+nameLen+4+8, valueLen)
         member _.Ptr = ptr
+        member _.Name = name
+        // todo: FIX HERE !!!
+        member _.Value: obj = 
+            match ``type`` with
+            | 1 -> BitConverter.ToInt32(valueSpan) |> box
+            | 2 -> BitConverter.ToDouble(valueSpan) |> box 
+            | _ -> null
+
 
 module private Memory =
     let malloc () = failwith "not implement"
